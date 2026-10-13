@@ -61,6 +61,53 @@ async function sendAliyun(phone, code) {
   return { ok: true, provider: 'aliyun', bizId: data.BizId };
 }
 
+// 阿里云「短信认证」(号码认证 PNVS) —— 个人实名即可用、免资质、免签名审核
+// 这是目前国内唯一对个人开发者开放的正规验证码通道
+async function sendPnv(phone, code) {
+  const keyId = process.env.ALIYUN_ACCESS_KEY_ID;
+  const keySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
+  const signName = process.env.PNVS_SIGN_NAME;
+  const templateCode = process.env.PNVS_TEMPLATE_CODE;
+
+  const missing = Object.entries({
+    ALIYUN_ACCESS_KEY_ID: keyId,
+    ALIYUN_ACCESS_KEY_SECRET: keySecret,
+    PNVS_SIGN_NAME: signName,
+    PNVS_TEMPLATE_CODE: templateCode,
+  }).filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length) throw new Error(`短信认证配置缺失: ${missing.join(', ')}`);
+
+  const params = {
+    AccessKeyId: keyId,
+    Action: 'SendSmsVerifyCode',
+    Code: code,               // 传自定义验证码；校验逻辑由我们自己实现
+    Format: 'JSON',
+    PhoneNumber: phone,
+    SignName: signName,
+    SignatureMethod: 'HMAC-SHA1',
+    SignatureNonce: randomUUID(),
+    SignatureVersion: '1.0',
+    TemplateCode: templateCode,
+    Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    Version: '2017-05-25',
+  };
+
+  const qs = Object.keys(params).sort()
+    .map((k) => `${pe(k)}=${pe(params[k])}`).join('&');
+  const stringToSign = `GET&%2F&${pe(qs)}`;
+  const signature = createHmac('sha1', `${keySecret}&`)
+    .update(stringToSign).digest('base64');
+
+  const url = `https://dypnsapi.aliyuncs.com/?Signature=${pe(signature)}&${qs}`;
+  const res = await fetch(url, { method: 'GET' });
+  const data = await res.json().catch(() => ({}));
+
+  if (data.Code !== 'OK') {
+    throw new Error(`短信认证发送失败: ${data.Code || res.status} ${data.Message || ''}`);
+  }
+  return { ok: true, provider: 'aliyun-pnvs', bizId: data.Model?.BizId };
+}
+
 async function sendHttp(phone, code) {
   const url = process.env.SMS_HTTP_URL;
   if (!url) throw new Error('缺少 SMS_HTTP_URL');
@@ -89,6 +136,8 @@ export async function sendSmsCode(phone, code) {
   const provider = (process.env.SMS_PROVIDER || '').toLowerCase().trim();
 
   if (provider === 'aliyun') return sendAliyun(phone, code);
+  // 个人开发者走这个：阿里云「短信认证」，免企业资质
+  if (provider === 'aliyun-pnvs' || provider === 'pnvs') return sendPnv(phone, code);
   if (provider === 'http') return sendHttp(phone, code);
   if (provider === 'dev') {
     // 仅供联调：不真发短信，把验证码回给调用方
