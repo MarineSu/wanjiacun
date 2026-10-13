@@ -56,6 +56,16 @@ export default async function handler() {
     info.pgError = String(e).slice(0, 200);
   }
 
+  // 实际连接测试：能连上就说明密码对了
+  try {
+    const { db } = await import('../lib/db.mjs');
+    const sql = db();
+    const r = await sql`select current_user as who, now() as ts`;
+    info.connectionTest = { ok: true, currentUser: r[0].who, time: String(r[0].ts) };
+  } catch (e) {
+    info.connectionTest = { ok: false, error: String(e).slice(0, 220) };
+  }
+
   return new Response(JSON.stringify(info, null, 2), {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
