@@ -1,0 +1,31 @@
+# Netlify 构建配置（连接仓库后自动读取，无需在网页上手动填写）
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# 安全与缓存响应头
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# 静态资源长缓存（文件名带 hash 时更安全，这里保守设 1 天）
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# SEO：确保 sitemap 与 robots 可被爬虫直接读取
+[[headers]]
+  for = "/sitemap-index.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+
+[[headers]]
+  for = "/robots.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
