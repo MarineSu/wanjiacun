@@ -80,15 +80,20 @@ async function sendPnv(phone, code) {
   const params = {
     AccessKeyId: keyId,
     Action: 'SendSmsVerifyCode',
-    Code: code,               // 传自定义验证码；校验逻辑由我们自己实现
+    CodeLength: 6,
+    DuplicatePolicy: 1,                 // 同号码重复发送时，旧验证码失效
     Format: 'JSON',
+    Interval: 60,                       // 平台侧频控，与我们自己的限流形成双保险
     PhoneNumber: phone,
+    ReturnVerifyCode: true,             // 让响应回传验证码，我们存哈希自行校验
     SignName: signName,
     SignatureMethod: 'HMAC-SHA1',
     SignatureNonce: randomUUID(),
     SignatureVersion: '1.0',
     TemplateCode: templateCode,
+    TemplateParam: JSON.stringify({ code: '##code##', min: '6' }),
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    ValidTime: 300,
     Version: '2017-05-25',
   };
 
@@ -105,7 +110,13 @@ async function sendPnv(phone, code) {
   if (data.Code !== 'OK') {
     throw new Error(`短信认证发送失败: ${data.Code || res.status} ${data.Message || ''}`);
   }
-  return { ok: true, provider: 'aliyun-pnvs', bizId: data.Model?.BizId };
+  return {
+    ok: true,
+    provider: 'aliyun-pnvs',
+    bizId: data.Model?.BizId,
+    // 阿里云生成的验证码（ReturnVerifyCode=true 时返回）
+    verifyCode: data.Model?.VerifyCode,
+  };
 }
 
 async function sendHttp(phone, code) {

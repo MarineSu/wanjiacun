@@ -55,24 +55,28 @@ export default async function handler(request) {
     return json({ error: '当前网络今日请求过于频繁，请明天再试' }, 429);
   }
 
-  // ---------- 生成并保存（只存哈希） ----------
-  const code = newCode();
-  await sql`
-    insert into verification_codes (phone, code_hash, ip, scene, expires_at)
-    values (${p}, ${hashCode(code)}, ${ip}, 'login',
-            now() + ${`${CODE_TTL_MIN} minutes`}::interval)
-  `;
-
-  // ---------- 发送 ----------
+  // ---------- 发送（阿里云短信认证会生成验证码并回传） ----------
+  const localCode = newCode();
+  let sent;
   try {
-    const r = await sendSmsCode(p, code);
-    const payload = { ok: true, ttl: CODE_TTL_MIN * 60 };
-    // 只有号码在开发白名单里才回传验证码（未配置白名单则永不回传）
-    const allow = (process.env.SMS_DEV_ALLOW || '')
-      .split(',').map((s) => s.trim()).filter(Boolean);
-    if (r.devCode && allow.includes(p)) payload.devCode = r.devCode;
-    return json(payload, 200);
+    sent = await sendSmsCode(p, localCode);
   } catch (e) {
     return json({ error: `短信发送失败：${String(e.message).slice(0, 100)}` }, 502);
   }
+  // 平台生成了自己的验证码时以它为准
+  const finalCode = sent.verifyCode || localCode;
+
+  // ---------- 保存（只存哈希，不存明文） ----------
+  await sql`
+    insert into verification_codes (phone, code_hash, ip, scene, expires_at)
+    values (${p}, ${hashCode(finalCode)}, ${ip}, 'login',
+            now() + ${`${CODE_TTL_MIN} minutes`}::interval)
+  `;
+
+  const payload = { ok: true, ttl: CODE_TTL_MIN * 60 };
+  // 只有号码在开发白名单里才回传验证码（未配置白名单则永不回传）
+  const allow = (process.env.SMS_DEV_ALLOW || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  if (sent.devCode && allow.includes(p)) payload.devCode = sent.devCode;
+  return json(payload, 200);
 }
