@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="页面不存在" description="没有找到这个页面，可以回到首页或从攻略库重新查找。" path="/404">
+  <h1>404 · 这个页面不在村里</h1>
+  <p class="muted">地址可能打错了，或者这篇攻略已经调整过。</p>
+
+  <h2>从这里继续</h2>
+  <div class="grid grid-2">
+    <a class="card" href="/">
+      <h3>回到首页</h3>
+      <p>看最新攻略和游戏库入口。</p>
+    </a>
+    <a class="card" href="/guides/">
+      <h3>攻略库</h3>
+      <p>按分类浏览全部攻略。</p>
+    </a>
+    <a class="card" href="/games/">
+      <h3>游戏库</h3>
+      <p>按游戏找对应的攻略合集。</p>
+    </a>
+  </div>
+</BaseLayout>
