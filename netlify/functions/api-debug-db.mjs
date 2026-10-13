@@ -4,7 +4,14 @@ export const config = { path: '/api/debug-db' };
 
 export default async function handler() {
   const raw = process.env.DATABASE_URL || '';
+  const pgpw = process.env.PGPASSWORD || '';
   const info = {
+    // 密码来源诊断
+    hasPGPASSWORD: pgpw.length > 0,
+    pgPasswordLength: pgpw.length,
+    hasDatabaseUrl: raw.length > 0,
+    // 密码优先级：PGPASSWORD 优先于 DATABASE_URL
+    activeSource: pgpw ? 'PGPASSWORD' : (raw ? 'DATABASE_URL' : '无'),
     envExists: raw.length > 0,
     rawLength: raw.length,
     // 脱敏：把密码部分替换成 ***
