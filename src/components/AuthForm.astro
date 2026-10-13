@@ -1,0 +1,123 @@
+---
+interface Props {
+  mode: 'login' | 'register';
+}
+const { mode } = Astro.props;
+const isRegister = mode === 'register';
+---
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h1>{isRegister ? '注册' : '登录'}</h1>
+    <p class="muted">
+      {isRegister
+        ? '注册后可以评论、点赞、收藏攻略，也能投稿自己的心得。'
+        : '登录后继续你的收藏和讨论。'}
+    </p>
+
+    <form id="auth-form" data-mode={mode} novalidate>
+      <label class="field">
+        <span>邮箱</span>
+        <input type="email" name="email" required autocomplete="email"
+               placeholder="you@example.com" />
+      </label>
+
+      <label class="field">
+        <span>密码</span>
+        <input type="password" name="password" required minlength="8"
+               autocomplete={isRegister ? 'new-password' : 'current-password'}
+               placeholder="至少 8 位，含字母和数字" />
+      </label>
+
+      {isRegister && (
+        <label class="field">
+          <span>确认密码</span>
+          <input type="password" name="confirm" required minlength="8"
+                 autocomplete="new-password" placeholder="再输入一次" />
+        </label>
+      )}
+
+      <button type="submit" class="submit" disabled={false}>
+        {isRegister ? '创建账号' : '登录'}
+      </button>
+
+      <p id="auth-msg" class="msg" role="status" aria-live="polite"></p>
+    </form>
+
+    <p class="switch">
+      {isRegister
+        ? <><span class="muted">已有账号？</span> <a href="/login/">去登录</a></>
+        : <><span class="muted">还没有账号？</span> <a href="/register/">去注册</a></>}
+    </p>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('auth-form') as HTMLFormElement | null;
+  const msg = document.getElementById('auth-msg');
+  if (form && msg) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const mode = form.dataset.mode || 'login';
+      const email = String(fd.get('email') || '').trim();
+      const password = String(fd.get('password') || '');
+
+      const setMsg = (t: string, ok = false) => {
+        msg.textContent = t;
+        msg.classList.toggle('ok', ok);
+      };
+
+      if (!email || !password) return setMsg('请填写邮箱和密码');
+      if (mode === 'register' && password !== String(fd.get('confirm') || '')) {
+        return setMsg('两次输入的密码不一致');
+      }
+
+      const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+      if (btn) btn.disabled = true;
+      setMsg('处理中…');
+
+      try {
+        const res = await fetch(`/api/auth/${mode}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          setMsg('成功，正在跳转…', true);
+          location.href = '/';
+        } else {
+          setMsg(data.error || '操作失败，请稍后重试');
+        }
+      } catch {
+        setMsg('网络异常，请检查连接后重试');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
+</script>
+
+<style>
+  .auth-wrap { display: flex; justify-content: center; padding: 24px 0 48px; }
+  .auth-card {
+    width: 100%; max-width: 420px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px; padding: 30px 28px 24px;
+  }
+  .auth-card h1 { margin: 0 0 8px; font-size: 24px; }
+  .field { display: block; margin: 18px 0 0; }
+  .field span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 11px 13px; font-size: 15px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .submit {
+    width: 100%; margin-top: 24px; padding: 12px; font-size: 15px; font-weight: 600;
+    color: #06231d; background: var(--accent); border: 0; border-radius: 9px; cursor: pointer;
+  }
+  .submit:disabled { opacity: .6; cursor: default; }
+  .msg { min-height: 22px; margin: 12px 0 0; font-size: 14px; color: #ff8f8f; }
+  .msg.ok { color: var(--accent); }
+  .switch { margin: 18px 0 0; font-size: 14px; text-align: center; }
+</style>

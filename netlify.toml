@@ -3,6 +3,10 @@
   command = "npm run build"
   publish = "dist"
 
+# 后端 API：Netlify Functions（认证接口）
+[functions]
+  directory = "netlify/functions"
+
 [build.environment]
   NODE_VERSION = "22"
 

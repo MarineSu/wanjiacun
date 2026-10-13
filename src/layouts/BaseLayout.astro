@@ -7,6 +7,7 @@ interface Props {
   path?: string;
   image?: string;
   jsonLd?: Record<string, unknown>[];
+  noindex?: boolean;
 }
 
 const {
@@ -15,6 +16,7 @@ const {
   path = '/',
   image,
   jsonLd = [],
+  noindex = false,
 } = Astro.props;
 
 const pageTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
@@ -35,7 +37,7 @@ const nav = [
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1" />
+    <meta name="robots" content={noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large,max-snippet:-1'} />
     <meta name="theme-color" content="#0b0d12" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -64,6 +66,9 @@ const nav = [
           <a href={n.href} class={Astro.url.pathname === n.href ? 'on' : ''}>{n.label}</a>
         ))}
       </nav>
+      <div class="auth-area" id="auth-area">
+        <a href="/login/" class="auth-link">登录</a>
+      </div>
     </header>
 
     <main>
@@ -106,6 +111,15 @@ const nav = [
       .brand { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
       .site-header nav { display: flex; gap: 20px; font-size: 15px; color: var(--muted); }
       .site-header nav a.on { color: var(--accent); }
+      .auth-area { margin-left: auto; display: flex; align-items: center; gap: 12px; font-size: 14px; }
+      .auth-area .who { color: var(--accent); max-width: 140px; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; }
+      .auth-area .auth-link {
+        background: none; border: 1px solid var(--border); color: var(--muted);
+        border-radius: 8px; padding: 5px 12px; font-size: 14px; cursor: pointer;
+        font-family: inherit;
+      }
+      .auth-area .auth-link:hover { border-color: var(--accent); color: var(--accent); }
 
       main { max-width: 1080px; margin: 0 auto; padding: 36px 20px 72px; }
       h1 { font-size: 30px; line-height: 1.35; margin: 0 0 12px; }
@@ -142,5 +156,38 @@ const nav = [
         max-width: 1080px; margin: 0 auto; color: var(--muted); font-size: 14px;
       }
     </style>
+
+    <script>
+      // 头部登录状态：登录后把“登录”换成用户名 + 退出
+      (async () => {
+        const el = document.getElementById('auth-area');
+        if (!el) return;
+        try {
+          const res = await fetch('/api/auth/me', { headers: { Accept: 'application/json' } });
+          if (!res.ok) return;
+          const data = await res.json();
+          const user = data?.user;
+          if (!user) return;
+
+          el.replaceChildren();
+          const who = document.createElement('span');
+          who.className = 'who';
+          who.textContent = user.displayName || user.username || user.email;
+
+          const btn = document.createElement('button');
+          btn.className = 'auth-link';
+          btn.textContent = '退出';
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+            location.reload();
+          });
+
+          el.append(who, btn);
+        } catch {
+          /* 接口不可用时保持默认的“登录”链接，不影响页面其他部分 */
+        }
+      })();
+    </script>
   </body>
 </html>

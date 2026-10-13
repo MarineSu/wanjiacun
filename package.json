@@ -10,6 +10,7 @@
   "dependencies": {
     "astro": "^5.1.1",
     "@astrojs/sitemap": "^3.2.1",
-    "@astrojs/rss": "^4.0.11"
+    "@astrojs/rss": "^4.0.11",
+    "postgres": "^3.4.5"
   }
 }
