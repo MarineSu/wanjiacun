@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 搜索引擎常先请求 /sitemap.xml，这里作为入口指向构建生成的索引 -->
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://wanjiacun.com/sitemap-0.xml</loc>
+  </sitemap>
+</sitemapindex>
