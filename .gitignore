@@ -1,0 +1,13 @@
+# 依赖与产物
+node_modules/
+dist/
+.astro/
+
+# 本地环境
+.env
+.env.*
+!.env.example
+
+# 系统
+.DS_Store
+*.log

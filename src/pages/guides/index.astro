@@ -1,0 +1,53 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../config';
+
+const guides = (await getCollection('guides'))
+  .filter((g) => !g.data.draft)
+  .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf());
+const games = await getCollection('games');
+const gameTitle = new Map(games.map((g) => [g.id, g.data.title]));
+
+const byCategory = new Map<string, typeof guides>();
+for (const g of guides) {
+  const list = byCategory.get(g.data.category) ?? [];
+  list.push(g);
+  byCategory.set(g.data.category, list);
+}
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: `${SITE.name} 攻略库`,
+    url: `${SITE.url}/guides/`,
+    inLanguage: 'zh-CN',
+    hasPart: guides.map((g) => ({
+      '@type': 'Article',
+      headline: g.data.title,
+      url: `${SITE.url}/guides/${g.id}/`,
+      datePublished: g.data.publishedAt.toISOString(),
+    })),
+  },
+];
+---
+<BaseLayout title="攻略库" description={`${SITE.name}攻略库，按分类浏览全部游戏攻略，共 ${guides.length} 篇。`} path="/guides/" jsonLd={jsonLd}>
+  <h1>攻略库</h1>
+  <p class="muted">共 {guides.length} 篇攻略，按分类整理。</p>
+
+  {[...byCategory.entries()].map(([cat, list]) => (
+    <section>
+      <h2>{cat}（{list.length}）</h2>
+      <div class="grid grid-2">
+        {list.map((g) => (
+          <a class="card" href={`/guides/${g.id}/`}>
+            <h3>{g.data.title}</h3>
+            <p>{g.data.summary}</p>
+            <p class="dim" style="margin-top:10px">{gameTitle.get(g.data.game) ?? g.data.game}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  ))}
+</BaseLayout>

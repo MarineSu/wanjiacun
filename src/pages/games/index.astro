@@ -1,0 +1,38 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../config';
+
+const games = (await getCollection('games')).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title, 'zh')
+);
+const guides = (await getCollection('guides')).filter((g) => !g.data.draft);
+const countByGame = new Map<string, number>();
+for (const g of guides) countByGame.set(g.data.game, (countByGame.get(g.data.game) ?? 0) + 1);
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: `${SITE.name} 游戏库`,
+    url: `${SITE.url}/games/`,
+    inLanguage: 'zh-CN',
+  },
+];
+---
+<BaseLayout title="游戏库" description={`${SITE.name}游戏库，收录 ${games.length} 款游戏的中文攻略入口。`} path="/games/" jsonLd={jsonLd}>
+  <h1>游戏库</h1>
+  <p class="muted">已收录 {games.length} 款游戏。</p>
+
+  <div class="grid grid-2" style="margin-top:24px">
+    {games.map((g) => (
+      <a class="card" href={`/games/${g.id}/`}>
+        <h3>{g.data.title}</h3>
+        <p>{g.data.summary}</p>
+        <p class="dim" style="margin-top:10px">
+          {g.data.platforms.join(' · ')} · {g.data.releaseYear} · {countByGame.get(g.id) ?? 0} 篇攻略
+        </p>
+      </a>
+    ))}
+  </div>
+</BaseLayout>

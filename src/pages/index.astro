@@ -1,0 +1,62 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../config';
+
+const games = (await getCollection('games')).sort((a, b) => a.data.title.localeCompare(b.data.title, 'zh'));
+const guides = (await getCollection('guides'))
+  .filter((g) => !g.data.draft)
+  .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf());
+
+const gameTitle = new Map(games.map((g) => [g.id, g.data.title]));
+const latest = guides.slice(0, 6);
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE.name,
+    url: SITE.url,
+    description: SITE.description,
+    inLanguage: 'zh-CN',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: { '@type': 'EntryPoint', urlTemplate: `${SITE.url}/search/?q={search_term_string}` },
+      'query-input': 'required name=search_term_string',
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: SITE.name,
+    url: SITE.url,
+  },
+];
+---
+<BaseLayout jsonLd={jsonLd} path="/">
+  <h1>{SITE.name}</h1>
+  <p class="muted">{SITE.description}</p>
+
+  <h2>最新攻略</h2>
+  <div class="grid grid-2">
+    {latest.map((g) => (
+      <a class="card" href={`/guides/${g.id}/`}>
+        <span class="tag">{g.data.category}</span>
+        <h3>{g.data.title}</h3>
+        <p>{g.data.summary}</p>
+        <p class="dim" style="margin-top:10px">{gameTitle.get(g.data.game) ?? g.data.game}</p>
+      </a>
+    ))}
+  </div>
+
+  <h2>游戏库</h2>
+  <div class="grid grid-2">
+    {games.map((g) => (
+      <a class="card" href={`/games/${g.id}/`}>
+        <h3>{g.data.title}</h3>
+        <p>{g.data.summary}</p>
+        <p class="dim" style="margin-top:10px">{g.data.platforms.join(' · ')} · {g.data.releaseYear}</p>
+      </a>
+    ))}
+  </div>
+</BaseLayout>

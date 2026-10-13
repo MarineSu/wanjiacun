@@ -1,0 +1,71 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../config';
+
+export async function getStaticPaths() {
+  const games = await getCollection('games');
+  const guides = (await getCollection('guides')).filter((g) => !g.data.draft);
+
+  return games.map((game) => ({
+    params: { slug: game.id },
+    props: {
+      game,
+      related: guides
+        .filter((g) => g.data.game === game.id)
+        .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf()),
+    },
+  }));
+}
+
+const { game, related } = Astro.props;
+const { Content } = await render(game);
+const d = game.data;
+const path = `/games/${game.id}/`;
+const description = `${d.title}攻略合集：${d.summary}`.slice(0, 150);
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'VideoGame',
+    name: d.title,
+    alternateName: d.aliases,
+    description: d.summary,
+    genre: d.genres,
+    gamePlatform: d.platforms,
+    datePublished: String(d.releaseYear),
+    ...(d.developer ? { author: { '@type': 'Organization', name: d.developer } } : {}),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: '首页', item: SITE.url + '/' },
+      { '@type': 'ListItem', position: 2, name: '游戏库', item: `${SITE.url}/games/` },
+      { '@type': 'ListItem', position: 3, name: d.title, item: SITE.url + path },
+    ],
+  },
+];
+---
+<BaseLayout title={d.title} description={description} path={path} jsonLd={jsonLd}>
+  <p class="crumb"><a href="/games/">游戏库</a> / {d.title}</p>
+  <h1>{d.title} 攻略</h1>
+  <p class="muted">{d.platforms.join(' · ')} · {d.genres.join(' · ')} · {d.releaseYear}
+    {d.developer && <> · {d.developer}</>}
+  </p>
+
+  <div class="prose" style="margin-top:24px">
+    <Content />
+  </div>
+
+  <h2>该游戏全部攻略（{related.length}）</h2>
+  <div class="grid grid-2">
+    {related.map((g) => (
+      <a class="card" href={`/guides/${g.id}/`}>
+        <span class="tag">{g.data.category}</span>
+        <h3>{g.data.title}</h3>
+        <p>{g.data.summary}</p>
+      </a>
+    ))}
+  </div>
+</BaseLayout>

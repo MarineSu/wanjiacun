@@ -1,0 +1,84 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../config';
+
+export async function getStaticPaths() {
+  const guides = (await getCollection('guides')).filter((g) => !g.data.draft);
+  const games = await getCollection('games');
+
+  return guides.map((guide) => ({
+    params: { slug: guide.id },
+    props: {
+      guide,
+      game: games.find((g) => g.id === guide.data.game),
+    },
+  }));
+}
+
+const { guide, game } = Astro.props;
+const { Content } = await render(guide);
+const d = guide.data;
+const path = `/guides/${guide.id}/`;
+const description = d.summary.slice(0, 150);
+const iso = (x: Date) => x.toISOString();
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: d.title,
+    description: d.summary,
+    inLanguage: 'zh-CN',
+    datePublished: iso(d.publishedAt),
+    dateModified: iso(d.updatedAt ?? d.publishedAt),
+    keywords: d.tags.join(','),
+    articleSection: d.category,
+    author: { '@type': 'Person', name: d.author },
+    publisher: { '@type': 'Organization', name: SITE.name, url: SITE.url },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': SITE.url + path },
+    ...(game ? { about: { '@type': 'VideoGame', name: game.data.title } } : {}),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: '首页', item: SITE.url + '/' },
+      { '@type': 'ListItem', position: 2, name: '攻略库', item: `${SITE.url}/guides/` },
+      ...(game
+        ? [{ '@type': 'ListItem', position: 3, name: game.data.title, item: `${SITE.url}/games/${game.id}/` }]
+        : []),
+      { '@type': 'ListItem', position: game ? 4 : 3, name: d.title, item: SITE.url + path },
+    ],
+  },
+];
+---
+<BaseLayout title={d.title} description={description} path={path} jsonLd={jsonLd}>
+  <p class="crumb">
+    <a href="/guides/">攻略库</a>
+    {game && <> / <a href={`/games/${game.id}/`}>{game.data.title}</a></>}
+  </p>
+
+  <h1>{d.title}</h1>
+  <p class="muted">
+    <span class="tag">{d.category}</span>
+    {d.author} · 发布于 <time datetime={iso(d.publishedAt)}>{d.publishedAt.toISOString().slice(0, 10)}</time>
+    {d.updatedAt && <> · 更新于 {d.updatedAt.toISOString().slice(0, 10)}</>}
+  </p>
+
+  <div class="prose" style="margin-top:26px">
+    <Content />
+  </div>
+
+  {d.tags.length > 0 && (
+    <p style="margin-top:32px">
+      {d.tags.map((t) => <span class="tag">#{t}</span>)}
+    </p>
+  )}
+
+  {game && (
+    <p style="margin-top:36px">
+      <a href={`/games/${game.id}/`}>← 返回《{game.data.title}》全部攻略</a>
+    </p>
+  )}
+</BaseLayout>

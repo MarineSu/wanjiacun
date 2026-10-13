@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# 搜索引擎收录入口
+Sitemap: https://wanjiacun.com/sitemap-index.xml
