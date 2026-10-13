@@ -1,5 +1,5 @@
 // 认证核心：密码哈希、会话管理、Cookie 工具
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
+import { randomBytes, scryptSync, timingSafeEqual, createHash, randomInt } from 'node:crypto';
 
 const COOKIE_NAME = 'pv_session';
 const SESSION_DAYS = 30;
@@ -74,7 +74,8 @@ export async function currentUser(sql, request) {
   const token = readToken(request);
   if (!token) return null;
   const rows = await sql`
-    select u.id, u.email, u.status, p.username, p.display_name, p.avatar_url, p.role,
+    select u.id, u.uid, u.phone, u.status,
+           p.username, p.display_name, p.avatar_url, p.role,
            s.id as session_id, s.region, s.city
       from sessions s
       join users u    on u.id = s.user_id
@@ -105,6 +106,30 @@ export async function readBody(request) {
   } catch {
     return {};
   }
+}
+
+// ---------- 手机号 ----------
+
+export function normalizePhone(phone) {
+  return String(phone ?? '').replace(/\D/g, '');
+}
+
+export function validatePhone(phone) {
+  const p = normalizePhone(phone);
+  if (!p) return '请填写手机号';
+  if (!/^1[3-9]\d{9}$/.test(p)) return '请输入 11 位中国大陆手机号';
+  return null;
+}
+
+// ---------- 短信验证码 ----------
+
+export function newCode() {
+  // 6 位数字，使用加密安全随机源
+  return String(randomInt(0, 1000000)).padStart(6, '0');
+}
+
+export function hashCode(code) {
+  return createHash('sha256').update(String(code)).digest('hex');
 }
 
 // 从请求头取客户端 IP（Netlify 会带 x-nf-client-connection-ip）

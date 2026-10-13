@@ -17,7 +17,7 @@ export default async function handler(request) {
     return json({
       user: {
         id: u.id,
-        email: u.email,
+        uid: u.uid,
         username: u.username,
         displayName: u.display_name,
         avatarUrl: u.avatar_url,

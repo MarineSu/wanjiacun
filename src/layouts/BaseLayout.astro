@@ -172,7 +172,8 @@ const nav = [
           el.replaceChildren();
           const who = document.createElement('span');
           who.className = 'who';
-          who.textContent = user.displayName || user.username || user.email;
+          who.textContent = user.displayName || user.username
+            || (user.uid ? `UID ${user.uid}` : '已登录');
 
           const btn = document.createElement('button');
           btn.className = 'auth-link';
