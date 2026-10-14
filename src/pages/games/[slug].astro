@@ -7,15 +7,18 @@ export async function getStaticPaths() {
   const games = await getCollection('games');
   const guides = (await getCollection('guides')).filter((g) => !g.data.draft);
 
-  return games.map((game) => ({
-    params: { slug: game.id },
-    props: {
-      game,
-      related: guides
-        .filter((g) => g.data.game === game.id)
-        .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf()),
-    },
-  }));
+  // dota2 有专用的工具页（src/pages/games/dota2/index.astro），这里排除避免路由冲突
+  return games
+    .filter((game) => game.id !== 'dota2')
+    .map((game) => ({
+      params: { slug: game.id },
+      props: {
+        game,
+        related: guides
+          .filter((g) => g.data.game === game.id)
+          .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf()),
+      },
+    }));
 }
 
 const { game, related } = Astro.props;

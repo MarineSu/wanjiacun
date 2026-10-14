@@ -1,0 +1,703 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { SITE } from '../../../config';
+
+const description = 'Dota 2 英雄克制关系查询：127 位英雄对位胜率、当前版本胜率榜与阵容克制推荐，数据来自 OpenDota 公开对局采样。';
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Dota 2 英雄克制查询',
+    url: `${SITE.url}/games/dota2/`,
+    applicationCategory: 'GameApplication',
+    inLanguage: 'zh-CN',
+  },
+];
+---
+<BaseLayout title="Dota 2 英雄克制查询" description={description} path="/games/dota2/" jsonLd={jsonLd}>
+<div class="wrap">
+<header>
+  <div class="brand">
+    <div class="logo">⚔</div>
+    <div>
+      <h1>Dota 2 英雄克制查询</h1>
+      <div class="sub" id="sub">数据加载中…</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab on" data-v="meta">版本胜率榜</div>
+    <div class="tab" data-v="hero">单英雄分析</div>
+    <div class="tab" data-v="draft">阵容克制推荐</div>
+  </div>
+</header>
+
+<!-- ============ 版本胜率榜（当前版本 7 天数据） ============ -->
+<section class="view on" id="v-meta">
+  <div class="metabar">
+    <div class="seg" id="modeSeg">
+      <button class="on" data-mode="turbo">快速模式</button>
+      <button data-mode="pub">公开对局（含天梯）</button>
+      <button data-mode="pro">职业比赛</button>
+    </div>
+    <span class="metanote" id="metaNote"></span>
+    <span style="flex:1"></span>
+    <span class="metanote" id="liveNote"></span>
+    <button class="btn-refresh" id="refreshBtn">↻ 更新数据</button>
+  </div>
+  <div class="panel">
+    <div class="tbar">
+      <b style="font-size:13.5px">英雄胜率排行</b>
+      <span style="color:var(--tx3);font-size:12px" id="mcnt"></span>
+      <span class="sp"></span>
+      <label>只看出场 ≥ <input type="range" id="mmin" min="0" max="20000" step="500" value="0"><b id="mminv" style="color:var(--tx);width:56px;display:inline-block">0</b></label>
+      <select id="msk">
+        <option value="wr">胜率</option>
+        <option value="p">出场数</option>
+        <option value="n">名称</option>
+      </select>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr>
+        <th style="width:44px">#</th><th data-k="n">英雄</th><th class="r" data-k="p">出场数</th>
+        <th class="r" data-k="wr">胜率</th><th class="r">相对 50%</th><th class="r">近 7 天出场走势</th>
+      </tr></thead>
+      <tbody id="mtb"></tbody>
+    </table></div>
+  </div>
+  <div class="note">
+    <span class="nb"><b>数据时效</b>：本页为 <b>最近 7 天</b> 的实战数据，即当前版本，区别于下面「单英雄分析」里的历史对位样本。</span>
+    <span class="nb"><b>模式</b>：快速模式（Turbo）节奏与普通模式差异很大，强势英雄也不同，两套数据分开看。</span>
+    <span class="nb"><b>关于「天梯」</b>：OpenDota 官方只提供 公开对局 / 快速 / 职业 三档（其官网英雄榜同样只有 Public / Turbo / Professional），<b>天梯与普通对局被合并在「公开对局」里，无法单独拆分</b>。要按天梯/段位细分需另接数据源（如 Stratz，支持段位与模式筛选）。</span>
+    <span class="nb"><b>来源</b>：OpenDota heroStats（普通/快速/职业三套独立统计）。</span>
+  </div>
+</section>
+
+<!-- ============ 单英雄 ============ -->
+<section class="view" id="v-hero">
+  <div class="picker" id="pk1">
+    <span class="ico">🔍</span>
+    <input type="text" placeholder="搜索英雄：中文名 / 英文名 / 缩写（如 AM、SF、蓝猫、小鱼人）" autocomplete="off">
+    <div class="drop"></div>
+  </div>
+  <div id="hero-body"><div class="empty">输入英雄名开始查询</div></div>
+</section>
+
+<!-- ============ 阵容推荐 ============ -->
+<section class="view" id="v-draft">
+  <div class="slots" id="slots"></div>
+  <div id="draft-body"><div class="empty">填入敌方英雄（最多 5 个），推荐对阵最有利的英雄</div></div>
+</section>
+
+<div style="text-align:center;color:var(--tx3);font-size:11.5px;margin-top:30px;padding-top:16px;border-top:1px solid var(--line)">
+  本站使用匿名访问统计（不收集个人信息、不记录明文 IP），仅用于了解功能使用情况
+</div>
+</div>
+</BaseLayout>
+
+<style is:global>
+
+.wrap *{box-sizing:border-box;margin:0;padding:0}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:6px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.26);background-clip:content-box}
+html:root{
+  --bg:#0a0c11;--bg2:#101319;--card:#151922;--card2:#1b202b;--card3:#222836;
+  --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.13);
+  --tx:#e9edf5;--tx2:#a3adc2;--tx3:#8b95ab;
+  --red:#e8503a;--green:#35bf7d;--gold:#e3b455;--blue:#5aa2f0;--purple:#a678e8;
+}
+html body{
+  background:radial-gradient(1200px 600px at 50% -200px,rgba(232,80,58,.10),transparent 70%),var(--bg);
+  color:var(--tx);font:14px/1.55 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;padding-bottom:60px;
+}
+body .wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+
+/* ---------- header ---------- */
+header{padding:26px 0 18px;border-bottom:1px solid var(--line);margin-bottom:22px}
+body .brand{display:flex;align-items:center;gap:14px}
+.logo{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:22px;
+  background:linear-gradient(145deg,#e8503a,#a32c1c);box-shadow:0 6px 22px rgba(232,80,58,.35)}
+.wrap h1{font-size:20px;font-weight:650;letter-spacing:.2px}
+.sub{color:var(--tx3);font-size:12.5px;margin-top:2px}
+.tabs{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+.tab{padding:9px 18px;border-radius:10px;background:var(--card);border:1px solid var(--line);
+  color:var(--tx2);cursor:pointer;font-size:13.5px;transition:.15s;user-select:none}
+.tab:hover{background:var(--card2);color:var(--tx)}
+.tab.on{background:linear-gradient(145deg,#e8503a,#b33523);color:#fff;border-color:transparent;
+  box-shadow:0 4px 16px rgba(232,80,58,.3)}
+section.view{display:none}
+section.view.on{display:block}
+
+/* ---------- search ---------- */
+.picker{position:relative}
+.picker input{width:100%;padding:13px 16px 13px 42px;background:var(--card);border:1px solid var(--line2);
+  border-radius:12px;color:var(--tx);font-size:14.5px;outline:none;transition:.15s}
+.picker input:focus{border-color:rgba(232,80,58,.6);box-shadow:0 0 0 3px rgba(232,80,58,.13)}
+.picker .ico{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:15px;pointer-events:none}
+.drop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--card2);border:1px solid var(--line2);
+  border-radius:12px;max-height:340px;overflow-y:auto;z-index:50;display:none;
+  box-shadow:0 18px 40px rgba(0,0,0,.6)}
+.drop.on{display:block}
+.drop .it{display:flex;align-items:center;gap:11px;padding:8px 13px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04)}
+.drop .it:last-child{border-bottom:0}
+.drop .it:hover,.drop .it.hl{background:rgba(232,80,58,.14)}
+.drop img{width:34px;height:34px;border-radius:8px;object-fit:cover;background:var(--card3);flex:none}
+.drop .nm{flex:1;min-width:0}
+.drop .nm b{font-weight:600;display:block;font-size:13.5px}
+.drop .nm span{color:var(--tx3);font-size:11.5px}
+.drop .wr{color:var(--tx2);font-size:12px;font-variant-numeric:tabular-nums}
+
+/* ---------- hero head ---------- */
+.hero-head{display:flex;align-items:center;gap:20px;background:linear-gradient(135deg,var(--card),var(--card2));
+  border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:20px 0}
+.hero-head .big{width:96px;height:96px;border-radius:16px;object-fit:cover;flex:none;
+  border:1px solid var(--line2);background:var(--card3)}
+.hh-info{flex:1;min-width:0}
+.hh-info h2{font-size:24px;font-weight:650}
+.hh-info .en{color:var(--tx3);font-size:13px;margin-top:1px}
+.chips{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.chip{padding:3px 10px;border-radius:20px;background:var(--card3);color:var(--tx2);font-size:11.5px;border:1px solid var(--line)}
+.chip.agi{background:rgba(53,191,125,.14);color:#4fd694;border-color:rgba(53,191,125,.25)}
+.chip.str{background:rgba(232,80,58,.14);color:#f0725e;border-color:rgba(232,80,58,.25)}
+.chip.int{background:rgba(90,162,240,.14);color:#79b3f5;border-color:rgba(90,162,240,.25)}
+.chip.uni{background:rgba(166,120,232,.14);color:#bd9bf0;border-color:rgba(166,120,232,.25)}
+.hh-stats{display:flex;gap:26px;flex:none}
+.hh-stats>div{text-align:right}
+.hh-stats b{display:block;font-size:22px;font-variant-numeric:tabular-nums;font-weight:650}
+.hh-stats span{color:var(--tx3);font-size:11.5px}
+
+/* ---------- panels ---------- */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:860px){.two-col{grid-template-columns:1fr}.hh-stats{display:none}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.panel>h3{padding:13px 16px;font-size:13.5px;font-weight:600;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:8px}
+.panel>h3 .badge{margin-left:auto;color:var(--tx2);font-size:11.5px;font-weight:400}
+.mv{padding:4px 0;max-height:430px;overflow-y:auto}
+.mv .row{display:flex;align-items:center;gap:11px;padding:7px 14px;cursor:pointer;transition:.12s}
+.mv .row:hover{background:var(--card2)}
+.mv img{width:32px;height:32px;border-radius:7px;object-fit:cover;background:var(--card3);flex:none;border:1px solid rgba(255,255,255,.10)}
+.mv .nm{width:78px;flex:none;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv .bar{flex:1;height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;min-width:40px}
+.mv .bar i{display:block;height:100%;border-radius:4px}
+.mv .val{width:56px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;flex:none}
+.mv .g{width:58px;text-align:right;color:var(--tx3);font-size:11.5px;flex:none;font-variant-numeric:tabular-nums}
+
+/* ---------- table ---------- */
+.tbar{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tbar .sp{flex:1}
+.tbar label{color:var(--tx3);font-size:12px;display:flex;align-items:center;gap:7px}
+input[type=range]{width:130px;accent-color:var(--red)}
+input[type=checkbox]{accent-color:var(--red);width:15px;height:15px;outline:1px solid var(--line2);outline-offset:1px;border-radius:3px;cursor:pointer}
+select{background:var(--card2);color:var(--tx);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-size:12.5px;outline:none}
+.tbl{max-height:620px;overflow:auto}
+table{width:100%;min-width:520px;border-collapse:collapse;font-variant-numeric:tabular-nums}
+thead th{position:sticky;top:0;background:var(--card2);z-index:2;padding:10px 14px;text-align:left;
+  font-size:11.5px;color:var(--tx2);font-weight:600;border-bottom:1px solid var(--line2);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--tx)}
+thead th.r{text-align:right}
+tbody td{padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.055);font-size:13px}
+tbody tr:hover{background:var(--card2)}
+tbody td.r{text-align:right}
+.opp{display:flex;align-items:center;gap:9px;cursor:pointer}
+.opp img{width:28px;height:28px;border-radius:6px;object-fit:cover;background:var(--card3);border:1px solid rgba(255,255,255,.10)}
+.opp b{font-weight:500}
+.mini{height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;width:80px;display:inline-block;vertical-align:middle}
+.mini i{display:block;height:100%}
+
+/* ---------- draft ---------- */
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin:18px 0}
+.slot{background:var(--card);border:1px dashed var(--line2);border-radius:12px;padding:10px;min-height:66px;
+  display:flex;align-items:center;gap:10px;position:relative}
+.slot.filled{border-style:solid}
+.slot img{width:44px;height:44px;border-radius:9px;object-fit:cover;background:var(--card3)}
+.slot .x{position:absolute;top:6px;right:9px;color:var(--tx3);cursor:pointer;font-size:15px;line-height:1}
+.slot .x:hover{color:var(--red)}
+.slot .ph{color:var(--tx3);font-size:12.5px}
+.slot input{width:100%;background:transparent;border:0;color:var(--tx);font-size:13.5px;outline:none}
+.res-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.04)}
+.res-row:hover{background:var(--card2)}
+.res-row img{width:38px;height:38px;border-radius:9px;object-fit:cover;background:var(--card3)}
+.res-row .rk{width:26px;color:var(--tx3);font-size:13px;text-align:center;flex:none}
+.res-row .nm{width:96px;flex:none;font-size:13.5px}
+.res-row .det{flex:1;display:flex;gap:6px;flex-wrap:wrap}
+.det-i{display:flex;align-items:center;gap:5px;background:var(--card3);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--tx2)}
+.det-i img{width:18px;height:18px;border-radius:4px}
+.res-row .score{width:74px;text-align:right;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;flex:none}
+
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--tx2)}
+.empty{color:var(--tx3);text-align:center;padding:52px 20px;font-size:14px}
+.note{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:10px;
+  padding:14px 18px;color:#c3ccdc;font-size:13px;line-height:1.85;margin-top:16px}
+.note b{color:var(--tx)}
+.note .nb{display:block;margin-bottom:4px}
+.note .nb:last-child{margin-bottom:0}
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;background:var(--card3);font-size:11px;color:var(--tx2);margin-right:5px}
+
+/* ---------- 版本胜率榜 ---------- */
+.metabar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px}
+.seg button{background:transparent;border:0;color:var(--tx2);padding:8px 18px;border-radius:8px;cursor:pointer;
+  font-size:13.5px;font-family:inherit;transition:.15s}
+.seg button:hover{color:var(--tx)}
+.seg button.on{background:linear-gradient(145deg,#e8503a,#b33523);color:#fff;box-shadow:0 3px 12px rgba(232,80,58,.28)}
+.metanote{color:var(--tx3);font-size:12.5px}
+.trend{display:inline-flex;align-items:flex-end;gap:2px;height:24px}
+.trend i{display:block;width:9px;background:var(--blue);border-radius:2px;min-height:2px;opacity:.85}
+.trend i:last-child{background:var(--gold)}
+.btn-refresh{background:var(--card2);border:1px solid var(--line2);color:var(--tx2);border-radius:9px;
+  padding:7px 14px;font-size:12.5px;font-family:inherit;cursor:pointer;transition:.15s}
+.btn-refresh:hover{color:var(--tx);border-color:rgba(232,80,58,.5)}
+.btn-refresh:disabled{opacity:.55;cursor:default}
+
+/* 并入 wanjiacun：解除站点正文区的宽度/内边距约束，工具布局不被压缩 */
+body main{max-width:none;padding:0}
+
+</style>
+
+<script is:inline>
+
+/* wanjiacun 版暂不接入埋点：访问统计保留在本地 dota2-counter 服务 */
+function track(){}
+function currentContext(){
+  const v=document.querySelector('.view.on'); if(!v) return '';
+  if(v.id==='v-hero' && curHero && BYID[curHero]) return '单英雄·'+BYID[curHero].n;
+  return {'v-meta':'版本胜率榜', 'v-hero':'单英雄分析', 'v-draft':'阵容克制推荐'}[v.id] || v.id;
+}
+
+/* ================= 数据层 ================= */
+let DATA=null, HEROES=[], BYID={}, MAXG=0, TOT_MU=0;
+const K_SHRINK=80;    // 小样本收缩强度（场次越少越向基准回归）
+
+async function boot(){
+  try{
+    const r=await fetch('/dota2/data.json', {cache:'no-store'});
+    DATA=await r.json();
+  }catch(e){
+    document.getElementById('sub').textContent='数据加载失败：'+e.message;return;
+  }
+  HEROES=Object.entries(DATA.heroes).map(([id,h])=>({
+    id:+id,n:h.n,en:h.en,slug:h.slug,a:h.a||[],attr:h.attr,atk:h.atk,roles:h.roles,
+    games:h.base_games,wr:h.base_wins/h.base_games,
+    pub_pick:h.pub_pick||0,pub_win:h.pub_win||0,turbo_pick:h.turbo_pick||0,turbo_win:h.turbo_win||0,
+    pro_pick:h.pro_pick||0,pro_win:h.pro_win||0,pro_ban:h.pro_ban||0,
+    trend:h.trend||[],turbo_trend:h.turbo_trend||[]
+  }));
+  HEROES.sort((a,b)=>a.n.localeCompare(b.n,'zh-Hans-CN'));
+  HEROES.forEach(h=>BYID[h.id]=h);
+  for(const a in DATA.matchups) for(const b in DATA.matchups[a]){
+    const g=DATA.matchups[a][b][0]; if(g>MAXG)MAXG=g;
+  }
+  let tot=0;
+  for(const a in DATA.matchups){const o=DATA.matchups[a];for(const b in o)tot+=o[b][0];}
+  TOT_MU=Math.round(tot/2);
+  document.getElementById('sub').textContent=
+    `OpenDota 数据 · 当前版本 ${DATA.patch||'—'} · 胜率数据每 6 小时自动更新`;
+  initMeta(); initHero(); initDraft();
+  document.getElementById('refreshBtn').onclick=()=>refreshLive(true);
+  refreshLive(false);          // 打开页面即取最新（服务端 6 小时缓存 + 后台自动更新）
+  // 使用统计：记录访问 + 每分钟心跳（页面隐藏时不发）
+  track('pageview');
+  track('heartbeat', currentContext());
+  setInterval(()=>{ if(!document.hidden) track('heartbeat', currentContext()); }, 60000);
+}
+
+/* 对位数据：{g:场次,w:A胜场,p:A胜率} */
+function mu(a,b){
+  const m=DATA.matchups[a]&&DATA.matchups[a][b];
+  return m?{g:m[0],w:m[1],p:m[1]/m[0],l:m[0]-m[1]}:null;
+}
+/* 收缩胜率（阵容量化用，抑制小样本噪声） */
+function shrunk(a,b){
+  const m=mu(a,b); if(!m)return null;
+  const base=BYID[a].wr;
+  return {p:(m.w+K_SHRINK*base)/(m.g+K_SHRINK),g:m.g};
+}
+const pct=(x,d=1)=>(x*100).toFixed(d)+'%';
+const sign=(x,d=1)=>{let v=(x*100).toFixed(d);if(/^-0\.?0*$/.test(v))v='0';return (parseFloat(v)>0?'+':'')+v+'%';};
+const wfmt=n=>{if(n<10000)return n.toLocaleString();const w=n/10000;
+  return (w>=10?Math.round(w):w.toFixed(1).replace(/\.0$/,''))+'万';};
+function wrClass(p,base){ const d=p-base; return d>.025?'pos':d<-.025?'neg':'neu'; }
+function wrColor(p){ // 相对 50% 的通用强度色（表格条）
+  const s=Math.max(0,Math.min(1,(p-0.40)/0.20));
+  return p>=0.5?`hsl(${140+(1-s)*0},${55+s*15}%,${52-s*6}%)`:`hsl(${12*s},${60}%,${52}%)`;
+}
+function bar(p,base){
+  const d=p-base, w=Math.min(100,Math.abs(d)*700+8);
+  const c=p>=base?'var(--green)':'var(--red)';
+  return `<span class="mini"><i style="width:${w}%;background:${c}"></i></span>`;
+}
+const attrName={str:'力量',agi:'敏捷',int:'智力',all:'全属性',universal:'全才'};
+const attrCls={str:'str',agi:'agi',int:'int',all:'uni',universal:'uni'};
+const rolesZh={Carry:'核心',Support:'辅助',Nuker:'爆发',Disabler:'控制',Jungler:'打野',
+  Durable:'耐战',Escape:'逃生',Pusher:'推进',Initiator:'先手',Initiator2:'先手'};
+
+/* ================= 搜索组件 ================= */
+/* 统一搜索：中文名 / 英文名 / slug / 别名缩写（am、sf、蓝猫、小鱼人…）
+   前缀命中优先，其次包含命中；excludeIds 用于排除已选项 */
+function searchHeroes(q, excludeIds){
+  const pool = (excludeIds && excludeIds.length)
+    ? HEROES.filter(h=>!excludeIds.includes(h.id)) : HEROES;
+  q = (q||'').trim().toLowerCase();
+  if(!q) return pool;
+  const pre=[], mid=[];
+  for(const h of pool){
+    const n=h.n.toLowerCase(), en=h.en.toLowerCase(), al=h.a||[];
+    if(n.startsWith(q)||en.startsWith(q)||h.slug.startsWith(q)||al.some(x=>x.startsWith(q))){ pre.push(h); continue; }
+    if(n.includes(q)||en.includes(q)||h.slug.includes(q)||al.some(x=>x.includes(q))) mid.push(h);
+  }
+  return pre.concat(mid);
+}
+
+function picker(rootId,onPick){
+  const root=document.getElementById(rootId);
+  const inp=root.querySelector('input'), drop=root.querySelector('.drop');
+  let list=[],hl=-1;
+  function match(q){ return searchHeroes(q); }
+  function render(){
+    if(!list.length){drop.innerHTML='<div class="it"><span class="nm"><b>无匹配英雄</b></span></div>';drop.classList.add('on');return;}
+    drop.innerHTML=list.map((h,i)=>`<div class="it${i===hl?' hl':''}" data-id="${h.id}">
+      <img src="/dota2/icons/${h.slug}.png" loading="lazy" alt="">
+      <span class="nm"><b>${h.n}</b><span>${h.en}</span></span>
+      <span class="wr">${pct(h.wr)}</span></div>`).join('');
+    drop.querySelectorAll('.it').forEach(el=>{
+      el.onmousedown=e=>{e.preventDefault();const h=BYID[+el.dataset.id];inp.value=h.n;drop.classList.remove('on');onPick(h.id);};
+    });
+    drop.classList.add('on');
+  }
+  inp.oninput=()=>{list=match(inp.value);hl=-1;render();};
+  inp.onfocus=()=>{list=match(inp.value);render();};
+  inp.onblur=()=>setTimeout(()=>drop.classList.remove('on'),120);
+  inp.onkeydown=e=>{
+    if(e.key==='ArrowDown'){hl=Math.min(hl+1,list.length-1);render();e.preventDefault();}
+    else if(e.key==='ArrowUp'){hl=Math.max(hl-1,0);render();e.preventDefault();}
+    else if(e.key==='Enter'&&list[hl]){inp.value=list[hl].n;drop.classList.remove('on');onPick(list[hl].id);}
+    else if(e.key==='Escape'){drop.classList.remove('on');}
+  };
+  return {set:(h)=>{inp.value=h.n;}};
+}
+
+/* ================= 视图 0：版本胜率榜（最近 7 天 = 当前版本） ================= */
+let metaMode='turbo', metaSort='wr', metaAsc=false, metaMin=0;
+function mStat(h){
+  if(metaMode==='turbo') return {p:h.turbo_pick, w:h.turbo_win, tr:h.turbo_trend};
+  if(metaMode==='pub')   return {p:h.pub_pick,   w:h.pub_win,   tr:h.trend};
+  return {p:h.pro_pick, w:h.pro_win, tr:[]};
+}
+function initMeta(){
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); metaMode=b.dataset.mode; renderMeta();
+  });
+  document.getElementById('mmin').oninput=e=>{metaMin=+e.target.value;document.getElementById('mminv').textContent=metaMin;renderMeta();};
+  document.getElementById('msk').onchange=e=>{metaSort=e.target.value;renderMeta();};
+  document.querySelectorAll('#v-meta thead th[data-k]').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;
+    if(metaSort===k) metaAsc=!metaAsc; else {metaSort=k; metaAsc=(k==='n');}
+    const s=document.getElementById('msk'); if(s) s.value=k;
+    renderMeta();
+  });
+  renderMeta();
+}
+function renderMeta(){
+  const label={turbo:'快速模式 (Turbo)',pub:'公开对局（含天梯）',pro:'职业比赛'}[metaMode]||metaMode;
+  const rows=HEROES.map(h=>{const s=mStat(h);return {h,p:s.p,wr:s.p?s.w/s.p:0,tr:s.tr||[],ban:h.pro_ban};})
+    .filter(r=>r.p>0 && r.p>=metaMin);
+  const total=rows.reduce((a,r)=>a+r.p,0);
+  document.getElementById('metaNote').textContent =
+    `${label} · 最近 7 天（当前版本）· ${rows.length} 位英雄有出场 · 样本 ${wfmt(total)} 场`;
+  const dir=metaAsc?1:-1;
+  rows.sort((a,b)=>{
+    if(metaSort==='n') return a.h.n.localeCompare(b.h.n,'zh-Hans-CN')*dir;
+    if(metaSort==='p') return (a.p-b.p)*dir;
+    return (a.wr-b.wr)*dir;
+  });
+  document.getElementById('mcnt').textContent=`（共 ${rows.length} 位）`;
+  document.getElementById('mtb').innerHTML=rows.map((r,i)=>{
+    const tr = r.tr.length ? (()=>{const mx=Math.max.apply(null,r.tr.concat([1]));
+      return `<span class="trend">${r.tr.map(v=>`<i style="height:${Math.max(2,Math.round(v/mx*24))}px"></i>`).join('')}</span>`;})() : '<span style="color:var(--tx3)">—</span>';
+    return `<tr><td style="color:var(--tx3)">${i+1}</td>
+      <td><span class="opp" data-go="${r.h.id}"><img src="/dota2/icons/${r.h.slug}.png" loading="lazy" alt=""><b>${r.h.n}</b></span></td>
+      <td class="r" style="color:var(--tx2)">${wfmt(r.p)}</td>
+      <td class="r ${wrClass(r.wr,0.5)}"><b>${pct(r.wr)}</b></td>
+      <td class="r">${bar(r.wr,0.5)}</td>
+      <td class="r">${tr}</td></tr>`;
+  }).join('') || '<tr><td colspan="6" class="empty">该模式下没有满足条件的英雄，试着调低出场数门槛</td></tr>';
+  document.querySelectorAll('#mtb [data-go]').forEach(el=>el.onclick=()=>{
+    curHero=+el.dataset.go;
+    document.querySelector('#pk1 input').value=BYID[curHero].n;
+    document.querySelector('.tab[data-v="hero"]').click();
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelector('.tab[data-v="hero"]').classList.add('on');
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+    document.getElementById('v-hero').classList.add('on');
+    renderHero(); window.scrollTo({top:0,behavior:'smooth'});
+  });
+}
+
+/* ---- 实时数据：打开页面自动拉最新（服务端缓存 15 分钟，不会频繁请求） ---- */
+let liveAt=0, liveSrc='';
+function applyLive(list){
+  const map={}; list.forEach(x=>map[x.id]=x);
+  HEROES.forEach(h=>{
+    const s=map[h.id]; if(!s) return;
+    h.pub_pick=s.pub_pick||0; h.pub_win=s.pub_win||0;
+    h.turbo_pick=s.turbo_picks||0; h.turbo_win=s.turbo_wins||0;
+    h.pro_pick=s.pro_pick||0; h.pro_win=s.pro_win||0; h.pro_ban=s.pro_ban||0;
+    h.trend=s.pub_pick_trend||[]; h.turbo_trend=s.turbo_picks_trend||[];
+  });
+}
+function updateLiveNote(){
+  const el=document.getElementById('liveNote'); if(!el) return;
+  if(liveSrc==='throttled'){ el.textContent='刚刚已更新过，稍后再试'; return; }
+  if(!liveAt){ el.textContent=liveSrc; return; }
+  const d=new Date(liveAt*1000), z=n=>String(n).padStart(2,'0');
+  el.textContent=`数据更新于 ${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`+
+    (liveSrc==='cache'?'（缓存）':'');
+}
+let cooldown=0, cdTimer=null;
+function startCooldown(sec){
+  const b=document.getElementById('refreshBtn'); if(!b) return;
+  cooldown=sec;
+  if(cdTimer) clearInterval(cdTimer);
+  const paint=()=>{ b.disabled=true; b.textContent=`${cooldown}s 后可再更新`; };
+  paint();
+  cdTimer=setInterval(()=>{
+    cooldown--;
+    if(cooldown<=0){
+      clearInterval(cdTimer); cdTimer=null;
+      b.disabled=false; b.textContent='↻ 更新数据';
+      updateLiveNote();
+    }else paint();
+  },1000);
+}
+async function refreshLive(force){
+  const b=document.getElementById('refreshBtn');
+  if(b){b.disabled=true;b.textContent='更新中…';}
+  try{
+    const r=await fetch('/api/dota2-stats'+(force?'?force=1':''),{cache:'no-store'});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'接口失败');
+    applyLive(j.data); liveAt=j.fetched_at; liveSrc=j.source;
+    if(j.game_version){                     // 用官方补丁号（如 7.41f）刷新顶部版本
+      DATA.patch=j.game_version;
+      document.getElementById('sub').textContent=
+        `OpenDota 数据 · 当前版本 ${j.game_version} · 胜率数据每 6 小时自动更新`;
+    }
+    renderMeta();
+    if(force){
+      // 服务端限流说明刚抓过 → 短冷却；真抓过 → 稍长冷却，防止连点把请求拖超时
+      startCooldown(liveSrc==='throttled'?5:10);
+      if(liveSrc==='throttled') liveSrc='throttled';
+    }
+  }catch(e){
+    liveSrc='更新失败：'+e.message;
+    if(force) startCooldown(10);
+  }finally{
+    if(b && !cdTimer){ b.disabled=false; b.textContent='↻ 更新数据'; }
+    updateLiveNote();
+  }
+}
+// 切回页面时若数据已超过 6 小时，自动更新
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && liveAt && (Date.now()/1000-liveAt)>21600) refreshLive(false);
+});
+
+/* ================= 视图 1：单英雄 ================= */
+let curHero=null, sortKey='p', asc=true, minGames=50, onlyDiff=false, heroTracked=false;
+
+function initHero(){
+  picker('pk1',id=>{curHero=id;renderHero();});
+  // 默认选中样本最大的英雄
+  const def=HEROES.slice().sort((a,b)=>b.games-a.games)[0];
+  if(def){curHero=def.id;document.querySelector('#pk1 input').value=def.n;renderHero();}
+}
+
+function renderHero(){
+  const h=BYID[curHero];
+  // 首屏自动带出的默认英雄不算「用户查询」，否则统计第一名永远是它
+  if(h && heroTracked) track('hero_view', String(curHero));
+  heroTracked = true;
+  const opp=DATA.matchups[curHero]||{};
+  const K=K_SHRINK;
+  const rows=Object.keys(opp).map(bid=>{
+    const b=+bid,m=mu(curHero,b);
+    const d=m.p-h.wr, sp=(m.w+K*h.wr)/(m.g+K);   // sp=收缩后胜率（排序用，抑制小样本噪声）
+    return {h:BYID[b],g:m.g,w:m.w,p:m.p,d,sp};
+  });
+  const ranked=rows.filter(r=>r.g>=100).sort((a,b)=>a.p-b.p);   // ≥100 场，避免小样本噪声霸榜
+  const strong=ranked.slice(-8).reverse();      // 最克制（对位胜率最高）
+  const weak=ranked.slice(0,8);                  // 最苦手（对位胜率最低）
+  document.getElementById('hero-body').innerHTML=`
+    <div class="hero-head">
+      <img class="big" src="/dota2/icons/${h.slug}.png" alt="">
+      <div class="hh-info">
+        <h2>${h.n}</h2>
+        <div class="en">${h.en}</div>
+        <div class="chips">
+          <span class="chip ${attrCls[h.attr]||''}">${attrName[h.attr]||h.attr}</span>
+          <span class="chip">${h.atk==='Melee'?'近战':'远程'}</span>
+          ${h.roles.slice(0,4).map(r=>`<span class="chip">${rolesZh[r]||r}</span>`).join('')}
+        </div>
+      </div>
+      <div class="hh-stats">
+        <div><b class="${wrClass(h.pub_pick?h.pub_win/h.pub_pick:0.5,0.5)}">${h.pub_pick?pct(h.pub_win/h.pub_pick):'—'}</b><span>普通模式 · 近7天</span></div>
+        <div><b class="${wrClass(h.turbo_pick?h.turbo_win/h.turbo_pick:0.5,0.5)}">${h.turbo_pick?pct(h.turbo_win/h.turbo_pick):'—'}</b><span>快速模式 · 近7天</span></div>
+        <div><b>${wfmt(h.games)}</b><span>历史对位样本</span></div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="panel"><h3><span style="color:var(--green)">▲</span> 最克制 <span class="badge">同场胜率最高 · ≥100 场</span></h3>
+        <div class="mv">${strong.map(r=>mvRow(r,h)).join('')||'<div class="empty">样本不足</div>'}</div></div>
+      <div class="panel"><h3><span style="color:var(--red)">▼</span> 最苦手 <span class="badge">同场胜率最低 · ≥100 场</span></h3>
+        <div class="mv">${weak.map(r=>mvRow(r,h)).join('')||'<div class="empty">样本不足</div>'}</div></div>
+    </div>
+    <div class="panel">
+      <div class="tbar">
+        <b style="font-size:13.5px">全部对阵</b>
+        <span style="color:var(--tx3);font-size:12px" id="cnt"></span>
+        <span class="sp"></span>
+        <label>最小场次 <input type="range" id="mg" min="0" max="1000" step="25" value="${minGames}"><b id="mgv" style="color:var(--tx);width:40px;display:inline-block">${minGames}</b></label>
+        <label><input type="checkbox" id="od" ${onlyDiff?'checked':''}> 只看克制/被克制</label>
+        <select id="sk">
+          <option value="p"${sortKey==='p'?' selected':''}>对位胜率</option>
+          <option value="g"${sortKey==='g'?' selected':''}>样本场次</option>
+          <option value="d"${sortKey==='d'?' selected':''}>相对基准</option>
+          <option value="n"${sortKey==='n'?' selected':''}>名称</option>
+        </select>
+      </div>
+      <div class="tbl"><table>
+        <thead><tr>
+          <th data-k="n">对手</th><th class="r" data-k="g">样本场次</th><th class="r" data-k="p">对位胜率</th>
+          <th class="r" data-k="d">相对基准</th><th class="r">强弱</th>
+        </tr></thead>
+        <tbody id="tb"></tbody>
+      </table></div>
+    </div>
+    <div class="note">
+      <span class="nb"><b>对位胜率</b>：该英雄与对手同场时该英雄的胜场占比（不分位置、不分段位）。</span>
+      <span class="nb"><b>相对基准</b>：对位胜率 − 该英雄整体胜率 ${pct(h.wr)}。正值 = 打这个对手比自己平时更顺。判断克制关系看它比看原始胜率更准——原始胜率会被对手英雄本身的强弱影响。</span>
+      <span class="nb"><b>样本</b>：数据为 OpenDota 公开对局采样（本次共约 111 万场对位、7987 组英雄组合，单组中位约 94 场）。左右两榜只取 ≥100 场的对位，下方表格默认过滤 50 场以下（可用滑块调整）。场次越少波动越大，请结合「样本场次」列判断。</span>
+      <span class="nb"><b>数据范围</b>：本页对位样本来自 OpenDota 已解析的历史公开对局（跨版本累计，抓取于 ${DATA.generated_at}，共 ${wfmt(TOT_MU)} 场），<b>不代表当前版本</b>。要看当前版本的强弱，请用顶部「版本胜率榜」（自动更新的最近 7 天数据）。</span>
+    </div>`;
+  document.getElementById('mg').oninput=e=>{minGames=+e.target.value;document.getElementById('mgv').textContent=minGames;fillTable(rows,h);};
+  document.getElementById('od').onchange=e=>{onlyDiff=e.target.checked;fillTable(rows,h);};
+  document.getElementById('sk').onchange=e=>{sortKey=e.target.value;fillTable(rows,h);};
+  document.querySelectorAll('#v-hero thead th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k; if(sortKey===k)asc=!asc; else {sortKey=k;asc=(k==='n');}
+    const s=document.getElementById('sk'); if(s)s.value=k; fillTable(rows,h);
+  });
+  document.querySelectorAll('#v-hero thead th[data-k]').forEach(()=>{});
+  fillTable(rows,h);
+}
+function mvRow(r,h){
+  const w=Math.min(100,Math.abs(r.d)*700+10);
+  return `<div class="row" data-go="${r.h.id}">
+    <img src="/dota2/icons/${r.h.slug}.png" loading="lazy" alt="">
+    <span class="nm">${r.h.n}</span>
+    <span class="bar"><i style="width:${w}%;background:${r.d>=0?'var(--green)':'var(--red)'}"></i></span>
+    <span class="val ${r.d>0.015?'pos':r.d<-0.015?'neg':'neu'}">${pct(r.p)}</span>
+    <span class="g">${r.g}场</span></div>`;
+}
+function fillTable(rows,h){
+  let rs=rows.filter(r=>r.g>=minGames);
+  if(onlyDiff)rs=rs.filter(r=>Math.abs(r.d)>=0.02);
+  const dir=asc?1:-1;
+  rs=rs.slice().sort((a,b)=>{
+    if(sortKey==='n')return a.h.n.localeCompare(b.h.n,'zh-Hans-CN')*dir;
+    return (a[sortKey]-b[sortKey])*dir;
+  });
+  document.getElementById('cnt').textContent=`（${rs.length} 个，已过滤 ${minGames} 场以下）`;
+  document.getElementById('tb').innerHTML=rs.map(r=>`
+    <tr><td><span class="opp" data-go="${r.h.id}">
+      <img src="/dota2/icons/${r.h.slug}.png" loading="lazy" alt=""><b>${r.h.n}</b></span></td>
+    <td class="r" style="color:${r.g<80?'var(--tx3)':'var(--tx2)'}${r.g<80?';opacity:.65':''}">${r.g.toLocaleString()}</td>
+    <td class="r ${wrClass(r.p,h.wr)}"><b>${pct(r.p)}</b></td>
+    <td class="r ${r.d>0.015?'pos':r.d<-0.015?'neg':'neu'}">${sign(r.d)}</td>
+    <td class="r">${bar(r.p,h.wr)}</td></tr>`).join('')||
+    '<tr><td colspan="5" class="empty">没有满足条件的对位，试着调低最小场次</td></tr>';
+  document.querySelectorAll('#hero-body [data-go]').forEach(el=>el.onclick=()=>{
+    curHero=+el.dataset.go;document.querySelector('#pk1 input').value=BYID[curHero].n;
+    renderHero();window.scrollTo({top:0,behavior:'smooth'});
+  });
+}
+
+/* ================= 视图 3：阵容克制推荐 ================= */
+let enemies=[null,null,null,null,null];
+function initDraft(){
+  const box=document.getElementById('slots');
+  box.innerHTML=enemies.map((e,i)=>`<div class="slot${e?' filled':''}" id="slot${i}">
+    ${e?`<img src="/dota2/icons/${BYID[e].slug}.png"><div style="flex:1;min-width:0"><b style="font-size:13.5px">${BYID[e].n}</b>
+      <div style="color:var(--tx3);font-size:11.5px">${BYID[e].en}</div></div><span class="x" data-i="${i}">✕</span>`
+     :`<input type="text" placeholder="敌方英雄 ${i+1}" data-i="${i}" autocomplete="off">`}
+  </div>`).join('')+`<div class="slot" style="border-style:dashed;justify-content:center;color:var(--tx3);font-size:12px;cursor:pointer" id="clear">清空全部</div>`;
+  // 已填槽位点击移除
+  box.querySelectorAll('.slot.filled').forEach((el,i)=>{});
+  box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{enemies[+x.dataset.i]=null;initDraft();renderDraft();});
+  document.getElementById('clear').onclick=()=>{enemies=[null,null,null,null,null];initDraft();renderDraft();};
+  // 空槽位挂搜索
+  box.querySelectorAll('input[data-i]').forEach(inp=>{
+    const i=+inp.dataset.i;
+    const wrap=document.createElement('div');wrap.className='drop';
+    wrap.style.position='absolute';wrap.style.left='8px';wrap.style.right='8px';wrap.style.top='100%';
+    inp.parentElement.appendChild(wrap);
+    function match(q){ return searchHeroes(q, enemies.filter(Boolean)); }
+    function show(){
+      const l=match(inp.value);
+      wrap.innerHTML=l.map(h=>`<div class="it" data-id="${h.id}">
+        <img src="/dota2/icons/${h.slug}.png"><span class="nm"><b>${h.n}</b><span>${h.en}</span></span></div>`).join('')
+        ||'<div class="it"><span class="nm"><b>无匹配</b></span></div>';
+      wrap.classList.add('on');
+      wrap.querySelectorAll('.it').forEach(el=>el.onmousedown=e=>{
+        e.preventDefault();const id=+el.dataset.id;if(!id)return;
+        enemies[i]=id;initDraft();renderDraft();
+      });
+    }
+    inp.oninput=show; inp.onfocus=show; inp.onblur=()=>setTimeout(()=>wrap.classList.remove('on'),120);
+  });
+}
+function renderDraft(){
+  const E=enemies.filter(Boolean);
+  if(!E.length){document.getElementById('draft-body').innerHTML='<div class="empty">填入敌方英雄（最多 5 个），推荐对阵最有利的英雄</div>';return;}
+  const res=HEROES.filter(h=>!E.includes(h.id)).map(h=>{
+    let sum=0,n=0,det=[];
+    for(const j of E){
+      const s=shrunk(h.id,j); if(!s||s.g<20)continue;
+      const d=s.p-h.wr; sum+=d; n++;
+      det.push({id:j,d,g:s.g});
+    }
+    return {h,score:n?sum/n:-9,n,det};
+  }).filter(r=>r.n>0).sort((a,b)=>b.score-a.score);
+  const top=res.slice(0,12), bottom=res.slice(-5).reverse();
+  document.getElementById('draft-body').innerHTML=`
+    <div class="panel"><h3>🛡 推荐英雄 <span class="badge">对当前敌方阵容平均相对优势（按样本量收缩）</span></h3>
+      <div>${top.map((r,i)=>resRow(r,i+1)).join('')}</div></div>
+    <div class="panel" style="margin-top:16px"><h3>⛔ 最差选择 <span class="badge">对阵该阵容相对吃亏</span></h3>
+      <div>${bottom.map((r,i)=>resRow(r,i+1,res.length-bottom.length+1)).join('')}</div></div>
+    <div class="note"><b>算法：</b>对每个候选英雄，逐个计算它与敌方每个英雄的对位胜率，减去它自身的整体胜率得到「相对优势」，
+    再按样本量做贝叶斯收缩（场次少的对位向基准回归，避免 3 场 100% 胜率的假象），最后取平均排序。<br>
+    <b>注意：</b>本工具只看历史对位数据，不考虑位置、阵容搭配、出装与版本改动，仅作选人参考。</div>`;
+}
+function resRow(r,rank,alt){
+  return `<div class="res-row"><span class="rk">${rank}</span>
+    <img src="/dota2/icons/${r.h.slug}.png" alt="">
+    <span class="nm">${r.h.n}<div style="color:var(--tx3);font-size:11px;font-weight:400">${pct(r.h.wr)} 基准</div></span>
+    <span class="det">${r.det.map(d=>`<span class="det-i"><img src="/dota2/icons/${BYID[d.id].slug}.png">
+      对${BYID[d.id].n} <b class="${d.d>0?'pos':'neg'}">${sign(d.d,1)}</b></span>`).join('')}</span>
+    <span class="score ${r.score>0.015?'pos':r.score<-0.015?'neg':'neu'}">${sign(r.score)}</span></div>`;
+}
+
+/* ================= tab 切换 ================= */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById('v-'+t.dataset.v).classList.add('on');
+  track('feature', t.innerText.trim());           // 统计：各板块使用情况
+});
+
+boot();
+
+</script>
