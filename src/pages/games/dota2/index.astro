@@ -2,7 +2,7 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { SITE } from '../../../config';
 
-const description = 'Dota 2 英雄克制关系查询：127 位英雄对位胜率、当前版本胜率榜与阵容克制推荐，数据来自 OpenDota 公开对局采样。';
+const description = 'Dota 2 英雄克制关系查询：127 位英雄对位胜率、当前版本胜率榜与阵容克制推荐，对位数据来自 Stratz 公开对局汇总。';
 const jsonLd = [
   {
     '@context': 'https://schema.org',
@@ -67,8 +67,8 @@ const jsonLd = [
   <div class="note">
     <span class="nb"><b>数据时效</b>：本页为 <b>最近 7 天</b> 的实战数据，即当前版本，区别于下面「单英雄分析」里的历史对位样本。</span>
     <span class="nb"><b>模式</b>：快速模式（Turbo）节奏与普通模式差异很大，强势英雄也不同，两套数据分开看。</span>
-    <span class="nb"><b>关于「天梯」</b>：OpenDota 官方只提供 公开对局 / 快速 / 职业 三档（其官网英雄榜同样只有 Public / Turbo / Professional），<b>天梯与普通对局被合并在「公开对局」里，无法单独拆分</b>。要按天梯/段位细分需另接数据源（如 Stratz，支持段位与模式筛选）。</span>
-    <span class="nb"><b>来源</b>：OpenDota heroStats（普通/快速/职业三套独立统计）。</span>
+    <span class="nb"><b>关于「天梯」</b>：本榜来自 OpenDota，官方只提供 公开对局 / 快速 / 职业 三档，<b>天梯与普通对局被合并在「公开对局」里</b>，无法单独拆分；按段位细分需用 Stratz 的段位参数（本页对位数据已接入 Stratz）。</span>
+    <span class="nb"><b>来源</b>：本榜为 OpenDota heroStats（普通/快速/职业三套独立统计，最近 7 天）；下方对位数据来自 Stratz。</span>
   </div>
 </section>
 
@@ -294,7 +294,7 @@ async function boot(){
   for(const a in DATA.matchups){const o=DATA.matchups[a];for(const b in o)tot+=o[b][0];}
   TOT_MU=Math.round(tot/2);
   document.getElementById('sub').textContent=
-    `OpenDota 数据 · 当前版本 ${DATA.patch||'—'} · 胜率数据每 6 小时自动更新`;
+    `对位数据 Stratz · 版本胜率 OpenDota · 当前版本 ${DATA.patch||'—'}`;
   initMeta(); initHero(); initDraft();
   document.getElementById('refreshBtn').onclick=()=>refreshLive(true);
   refreshLive(false);          // 打开页面即取最新（服务端 6 小时缓存 + 后台自动更新）
@@ -484,7 +484,7 @@ async function refreshLive(force){
     if(j.game_version){                     // 用官方补丁号（如 7.41f）刷新顶部版本
       DATA.patch=j.game_version;
       document.getElementById('sub').textContent=
-        `OpenDota 数据 · 当前版本 ${j.game_version} · 胜率数据每 6 小时自动更新`;
+        `对位数据 Stratz · 版本胜率 OpenDota · 当前版本 ${j.game_version}`;
     }
     renderMeta();
     if(force){
@@ -579,8 +579,8 @@ function renderHero(){
     <div class="note">
       <span class="nb"><b>对位胜率</b>：该英雄与对手同场时该英雄的胜场占比（不分位置、不分段位）。</span>
       <span class="nb"><b>相对基准</b>：对位胜率 − 该英雄整体胜率 ${pct(h.wr)}。正值 = 打这个对手比自己平时更顺。判断克制关系看它比看原始胜率更准——原始胜率会被对手英雄本身的强弱影响。</span>
-      <span class="nb"><b>样本</b>：数据为 OpenDota 公开对局采样（本次共约 111 万场对位、7987 组英雄组合，单组中位约 94 场）。左右两榜只取 ≥100 场的对位，下方表格默认过滤 50 场以下（可用滑块调整）。场次越少波动越大，请结合「样本场次」列判断。</span>
-      <span class="nb"><b>数据范围</b>：本页对位样本来自 OpenDota 已解析的历史公开对局（跨版本累计，抓取于 ${DATA.generated_at}，共 ${wfmt(TOT_MU)} 场），<b>不代表当前版本</b>。要看当前版本的强弱，请用顶部「版本胜率榜」（自动更新的最近 7 天数据）。</span>
+      <span class="nb"><b>样本</b>：对位数据来自 Stratz 公开对局汇总（共 ${wfmt((DATA.mu_stats||{}).total_games||0)} 场、${(DATA.mu_stats||{}).combos||0} 组英雄组合，单组中位 ${((DATA.mu_stats||{}).median_games||0).toLocaleString()} 场），胜率误差约 ±2 个百分点。下方表格默认过滤 50 场以下（可用滑块调整）。</span>
+      <span class="nb"><b>数据范围</b>：对位样本为 Stratz 汇总的历史公开对局（跨版本累计，抓取于 ${DATA.generated_at}），<b>不代表当前版本</b>。要看当前版本的强弱，请用顶部「版本胜率榜」（自动更新的最近 7 天数据）。</span>
     </div>`;
   document.getElementById('mg').oninput=e=>{minGames=+e.target.value;document.getElementById('mgv').textContent=minGames;fillTable(rows,h);};
   document.getElementById('od').onchange=e=>{onlyDiff=e.target.checked;fillTable(rows,h);};
